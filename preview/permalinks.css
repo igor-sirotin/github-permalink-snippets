@@ -10,6 +10,20 @@
   background: var(--vscode-editor-background, transparent);
 }
 
+/*
+ * Tight spacing for the `text: URL` / `text URL` case — the snippet card
+ * follows a paragraph that ended on the same source line as the URL, so we
+ * collapse the bottom margin of that paragraph and pull the card up close
+ * to it. Soft-break / blank-line cases keep the default flow spacing.
+ */
+.gh-permalink-prefix-tight {
+  margin-bottom: 2px;
+}
+
+.gh-permalink-card-tight {
+  margin-top: 2px;
+}
+
 .gh-permalink-header {
   background: var(--vscode-sideBarSectionHeader-background, var(--vscode-editorWidget-background, #f6f8fa));
   color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground, #1f2328));

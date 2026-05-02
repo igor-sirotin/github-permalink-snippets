@@ -131,7 +131,37 @@ interface FenceSnippet {
   fenceInfo: string;
 }
 
-function buildFenceSnippet(info: PermalinkInfo, content: string): FenceSnippet {
+/**
+ * What sat immediately before the URL in the source — picked by walking
+ * the inline children backward, skipping whitespace text. Used to tune
+ * the gap between the prefix paragraph and the snippet card so an
+ * `text: URL` / `text URL` line feels visually attached, while a
+ * blank-line-separated permalink keeps its full block spacing.
+ */
+type PrevSep = 'paragraph' | 'softbreak' | 'inline';
+
+function classifyPrev(
+  children: Token[],
+  cursor: number,
+  matchIdx: number
+): PrevSep {
+  let k = matchIdx - 1;
+  while (k >= cursor && isWhitespaceText(children[k])) k--;
+  if (k < cursor) return 'paragraph';
+  if (isLineBreak(children[k])) return 'softbreak';
+  return 'inline';
+}
+
+function cardClass(prevSep: PrevSep, extra = ''): string {
+  const tight = prevSep === 'inline' ? ' gh-permalink-card-tight' : '';
+  return 'gh-permalink-card' + tight + (extra ? ' ' + extra : '');
+}
+
+function buildFenceSnippet(
+  info: PermalinkInfo,
+  content: string,
+  prevSep: PrevSep
+): FenceSnippet {
   const allLines = content.split('\n');
   if (allLines.length > 0 && allLines[allLines.length - 1] === '') allLines.pop();
 
@@ -154,7 +184,7 @@ function buildFenceSnippet(info: PermalinkInfo, content: string): FenceSnippet {
     .join('\n');
 
   const openHtml =
-    '<div class="gh-permalink-card">' +
+    '<div class="' + cardClass(prevSep) + '">' +
     renderHeader(info, lineLabel) +
     '<div class="gh-permalink-body">' +
     '<div class="gh-permalink-gutter" aria-hidden="true">' +
@@ -172,18 +202,22 @@ function buildFenceSnippet(info: PermalinkInfo, content: string): FenceSnippet {
   return { openHtml, closeHtml, fenceContent, fenceInfo: lang };
 }
 
-function renderLoading(info: PermalinkInfo): string {
+function renderLoading(info: PermalinkInfo, prevSep: PrevSep): string {
   return (
-    '<div class="gh-permalink-card gh-permalink-card-loading">' +
+    '<div class="' + cardClass(prevSep, 'gh-permalink-card-loading') + '">' +
     renderHeader(info, '') +
     '<div class="gh-permalink-loading">Loading…</div>' +
     '</div>\n'
   );
 }
 
-function renderError(info: PermalinkInfo, message: string): string {
+function renderError(
+  info: PermalinkInfo,
+  message: string,
+  prevSep: PrevSep
+): string {
   return (
-    '<div class="gh-permalink-card gh-permalink-card-error">' +
+    '<div class="' + cardClass(prevSep, 'gh-permalink-card-error') + '">' +
     renderHeader(info, '') +
     '<div class="gh-permalink-error">Failed to load: ' + escapeHtml(message) + '</div>' +
     '</div>\n'
@@ -198,10 +232,11 @@ function buildSnippetTokens(
   state: StateCore,
   info: PermalinkInfo,
   entry: CacheEntry,
-  level: number
+  level: number,
+  prevSep: PrevSep
 ): Token[] {
   if (entry.status === 'fulfilled' && typeof entry.content === 'string') {
-    const snippet = buildFenceSnippet(info, entry.content);
+    const snippet = buildFenceSnippet(info, entry.content, prevSep);
 
     const open = new state.Token('html_block', '', 0);
     open.content = snippet.openHtml;
@@ -225,8 +260,8 @@ function buildSnippetTokens(
 
   const html =
     entry.status === 'rejected'
-      ? renderError(info, entry.error || 'unknown error')
-      : renderLoading(info);
+      ? renderError(info, entry.error || 'unknown error', prevSep)
+      : renderLoading(info, prevSep);
 
   const placeholder = new state.Token('html_block', '', 0);
   placeholder.content = html;
@@ -329,6 +364,8 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
       let cursor = 0;
 
       for (const m of matches) {
+        const prevSep = classifyPrev(children, cursor, m.idx);
+
         // Pre-segment ends at the line break immediately before the link
         // (if any) — that break was the line separator, not content. Walk
         // back over any whitespace-only text noise between the break and
@@ -336,9 +373,19 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
         let segEnd = m.idx;
         while (segEnd > cursor && isWhitespaceText(children[segEnd - 1])) segEnd--;
         if (segEnd > cursor && isLineBreak(children[segEnd - 1])) segEnd--;
-        replacement.push(
-          ...emitInlineParagraph(state, children.slice(cursor, segEnd), level)
+
+        const beforeTokens = emitInlineParagraph(
+          state,
+          children.slice(cursor, segEnd),
+          level
         );
+        // When the URL was on the same source line as its prefix
+        // (`text: URL`), tag the prefix paragraph so CSS can shrink the
+        // gap between it and the snippet card that follows.
+        if (beforeTokens.length > 0 && prevSep === 'inline') {
+          beforeTokens[0].attrJoin('class', 'gh-permalink-prefix-tight');
+        }
+        replacement.push(...beforeTokens);
 
         const entry = fetcher.get(
           m.info.owner,
@@ -347,7 +394,9 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
           m.info.path,
           tokenFingerprint
         );
-        replacement.push(...buildSnippetTokens(state, m.info, entry, level));
+        replacement.push(
+          ...buildSnippetTokens(state, m.info, entry, level, prevSep)
+        );
 
         // Advance past the link triple, then past any whitespace-only text
         // and the trailing line break that followed it.
