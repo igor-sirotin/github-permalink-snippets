@@ -78,29 +78,10 @@ function isWhitespaceText(tok: Token | undefined): boolean {
   return !!tok && tok.type === 'text' && tok.content.trim() === '';
 }
 
-/**
- * Walk `direction` from `start` skipping whitespace-only text tokens. The
- * URL counts as "on its own line" when this scan hits a line break, the
- * end of the children array, or there's no token at all — but not when it
- * hits actual prose content.
- */
-function isLineBoundary(
-  children: Token[],
-  start: number,
-  direction: 1 | -1
-): boolean {
-  let k = start;
-  while (k >= 0 && k < children.length) {
-    const t = children[k];
-    if (isLineBreak(t)) return true;
-    if (isWhitespaceText(t)) {
-      k += direction;
-      continue;
-    }
-    return false;
-  }
-  return true;
-}
+// Linkify can greedily include trailing sentence-punctuation in a URL when
+// text follows immediately (`…#L26: caption` → href ends in `:`). Strip it
+// before regex-matching so those URLs still register as permalinks.
+const TRAILING_PUNCT_RE = /[.,;:!?)\]}>]+$/;
 
 /**
  * Try to recognise a linkified GitHub permalink at `children[j]` — i.e.
@@ -118,7 +99,7 @@ function tryMatchPermalinkAt(children: Token[], j: number): PermalinkInfo | null
   }
   const href = a.attrGet('href');
   if (!href || href !== b.content) return null;
-  return parsePermalink(href);
+  return parsePermalink(href.replace(TRAILING_PUNCT_RE, ''));
 }
 
 function renderHeader(info: PermalinkInfo, lineLabel: string): string {
@@ -331,15 +312,14 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
         const info = tryMatchPermalinkAt(children, j);
         if (!info) continue;
 
-        // Walk outward, skipping whitespace-only text tokens, until we hit
-        // either a line break, another piece of content, or the boundary.
-        const beforeOk = isLineBoundary(children, j - 1, -1);
-        const afterOk = isLineBoundary(children, j + 3, 1);
-
-        if (beforeOk && afterOk) {
-          matches.push({ idx: j, info });
-          j += 2; // skip past the link_open/text/link_close triple we matched
-        }
+        // Match every linkified permalink, regardless of what surrounds it
+        // in the source. A `text: URL`-style line still becomes a snippet —
+        // the prefix gets emitted as its own paragraph, the snippet card
+        // follows, and any trailing prose becomes a third paragraph.
+        // Markdown links with custom text (`[label](url)`) are filtered out
+        // by `tryMatchPermalinkAt` because the link's text != href.
+        matches.push({ idx: j, info });
+        j += 2; // skip past the link_open/text/link_close triple we matched
       }
 
       if (matches.length === 0) continue;
