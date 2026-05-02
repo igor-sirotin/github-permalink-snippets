@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token';
+import type StateCore from 'markdown-it/lib/rules_core/state_core';
 import type { CacheEntry } from './fetcher';
 
 const PERMALINK_RE =
@@ -68,28 +69,28 @@ function parsePermalink(url: string): PermalinkInfo | null {
   return { owner, repo, sha, path, startLine, endLine, url };
 }
 
-function extractSoleUrl(children: Token[]): string | null {
-  const meaningful = children.filter(
-    (c) => !(c.type === 'text' && c.content.trim() === '')
-  );
+function isLineBreak(tok: Token | undefined): boolean {
+  if (!tok) return false;
+  return tok.type === 'softbreak' || tok.type === 'hardbreak';
+}
 
-  if (
-    meaningful.length === 3 &&
-    meaningful[0].type === 'link_open' &&
-    meaningful[1].type === 'text' &&
-    meaningful[2].type === 'link_close'
-  ) {
-    const href = meaningful[0].attrGet('href');
-    const text = meaningful[1].content;
-    if (href && href === text) return href;
+/**
+ * Try to recognise a linkified GitHub permalink at `children[j]` — i.e.
+ * the [link_open, text(url), link_close] triple that markdown-it's linkify
+ * pass produces for a bare URL whose link text equals its href. Returns
+ * the parsed permalink info on a hit.
+ */
+function tryMatchPermalinkAt(children: Token[], j: number): PermalinkInfo | null {
+  if (j + 2 >= children.length) return null;
+  const a = children[j];
+  const b = children[j + 1];
+  const c = children[j + 2];
+  if (a.type !== 'link_open' || b.type !== 'text' || c.type !== 'link_close') {
+    return null;
   }
-
-  if (meaningful.length === 1 && meaningful[0].type === 'text') {
-    const t = meaningful[0].content.trim();
-    if (/^https:\/\/github\.com\//.test(t)) return t;
-  }
-
-  return null;
+  const href = a.attrGet('href');
+  if (!href || href !== b.content) return null;
+  return parsePermalink(href);
 }
 
 function renderHeader(info: PermalinkInfo, lineLabel: string): string {
@@ -180,6 +181,91 @@ function renderError(info: PermalinkInfo, message: string): string {
   );
 }
 
+/**
+ * Build the token sequence that replaces a recognised permalink — fenced
+ * snippet on cache hit, single html_block placeholder otherwise.
+ */
+function buildSnippetTokens(
+  state: StateCore,
+  info: PermalinkInfo,
+  entry: CacheEntry,
+  level: number
+): Token[] {
+  if (entry.status === 'fulfilled' && typeof entry.content === 'string') {
+    const snippet = buildFenceSnippet(info, entry.content);
+
+    const open = new state.Token('html_block', '', 0);
+    open.content = snippet.openHtml;
+    open.block = true;
+    open.level = level;
+
+    const fence = new state.Token('fence', 'code', 0);
+    fence.info = snippet.fenceInfo;
+    fence.content = snippet.fenceContent;
+    fence.markup = '```';
+    fence.block = true;
+    fence.level = level;
+
+    const close = new state.Token('html_block', '', 0);
+    close.content = snippet.closeHtml;
+    close.block = true;
+    close.level = level;
+
+    return [open, fence, close];
+  }
+
+  const html =
+    entry.status === 'rejected'
+      ? renderError(info, entry.error || 'unknown error')
+      : renderLoading(info);
+
+  const placeholder = new state.Token('html_block', '', 0);
+  placeholder.content = html;
+  placeholder.block = true;
+  placeholder.level = level;
+  return [placeholder];
+}
+
+/**
+ * Wrap a slice of the original inline token's children in a fresh
+ * paragraph_open / inline / paragraph_close triple. Trims leading and
+ * trailing softbreak/hardbreak tokens (those acted as the line separators
+ * to the permalink, not as content of the surrounding prose). Returns an
+ * empty array if the segment has no real content.
+ */
+function emitInlineParagraph(
+  state: StateCore,
+  segment: Token[],
+  level: number
+): Token[] {
+  let start = 0;
+  let end = segment.length;
+  while (start < end && isLineBreak(segment[start])) start++;
+  while (end > start && isLineBreak(segment[end - 1])) end--;
+  if (start >= end) return [];
+
+  // If everything left is whitespace-only text, drop it too.
+  const trimmed = segment.slice(start, end);
+  const allWhitespace = trimmed.every(
+    (t) => t.type === 'text' && t.content.trim() === ''
+  );
+  if (allWhitespace) return [];
+
+  const popen = new state.Token('paragraph_open', 'p', 1);
+  popen.block = true;
+  popen.level = level;
+
+  const inlineTok = new state.Token('inline', '', 0);
+  inlineTok.children = trimmed;
+  inlineTok.level = level + 1;
+
+  const pclose = new state.Token('paragraph_close', 'p', -1);
+  pclose.block = true;
+  pclose.level = level;
+
+  return [popen, inlineTok, pclose];
+}
+
 export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
   const fetcher = options.fetcher;
   const getTokenFingerprint = options.getTokenFingerprint;
@@ -187,64 +273,85 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
   md.core.ruler.after('inline', 'github_permalinks', (state) => {
     const tokenFingerprint = getTokenFingerprint();
     const tokens = state.tokens;
+
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];
       if (tok.type !== 'inline' || !tok.children) continue;
 
-      const open = tokens[i - 1];
-      const close = tokens[i + 1];
+      const popen = tokens[i - 1];
+      const pclose = tokens[i + 1];
       if (
-        !open ||
-        !close ||
-        open.type !== 'paragraph_open' ||
-        close.type !== 'paragraph_close'
+        !popen ||
+        !pclose ||
+        popen.type !== 'paragraph_open' ||
+        pclose.type !== 'paragraph_close'
       ) {
         continue;
       }
 
-      const url = extractSoleUrl(tok.children);
-      if (!url) continue;
+      const children = tok.children;
+      const matches: { idx: number; info: PermalinkInfo }[] = [];
 
-      const info = parsePermalink(url);
-      if (!info) continue;
+      // Find every permalink that sits on its own line — i.e. preceded
+      // and followed by a softbreak/hardbreak (or by the paragraph
+      // boundary itself). Multiple permalinks per paragraph are allowed.
+      for (let j = 0; j < children.length; j++) {
+        const info = tryMatchPermalinkAt(children, j);
+        if (!info) continue;
 
-      const entry = fetcher.get(info.owner, info.repo, info.sha, info.path, tokenFingerprint);
+        const before = j > 0 ? children[j - 1] : undefined;
+        const after = j + 3 < children.length ? children[j + 3] : undefined;
+        const beforeOk = !before || isLineBreak(before);
+        const afterOk = !after || isLineBreak(after);
 
-      if (entry.status === 'fulfilled' && typeof entry.content === 'string') {
-        const snippet = buildFenceSnippet(info, entry.content);
-
-        const openToken = new state.Token('html_block', '', 0);
-        openToken.content = snippet.openHtml;
-        openToken.block = true;
-
-        const fenceToken = new state.Token('fence', 'code', 0);
-        fenceToken.info = snippet.fenceInfo;
-        fenceToken.content = snippet.fenceContent;
-        fenceToken.markup = '```';
-        fenceToken.block = true;
-
-        const closeToken = new state.Token('html_block', '', 0);
-        closeToken.content = snippet.closeHtml;
-        closeToken.block = true;
-
-        tokens.splice(i - 1, 3, openToken, fenceToken, closeToken);
-        // The three replacement tokens (html_block, fence, html_block) are
-        // none of them inline paragraph content, so the loop's type check
-        // skips them on subsequent iterations — no index adjustment needed.
-        continue;
+        if (beforeOk && afterOk) {
+          matches.push({ idx: j, info });
+          j += 2; // skip past the link_open/text/link_close triple we matched
+        }
       }
 
-      const html =
-        entry.status === 'rejected'
-          ? renderError(info, entry.error || 'unknown error')
-          : renderLoading(info);
+      if (matches.length === 0) continue;
 
-      const placeholder = new state.Token('html_block', '', 0);
-      placeholder.content = html;
-      placeholder.block = true;
+      const level = popen.level;
+      const replacement: Token[] = [];
+      let cursor = 0;
 
-      tokens.splice(i - 1, 3, placeholder);
-      i -= 1;
+      for (const m of matches) {
+        // Pre-segment ends at the softbreak immediately before the link
+        // (if any) — that softbreak was the line separator, not content.
+        let segEnd = m.idx;
+        if (segEnd > cursor && isLineBreak(children[segEnd - 1])) segEnd--;
+        replacement.push(
+          ...emitInlineParagraph(state, children.slice(cursor, segEnd), level)
+        );
+
+        const entry = fetcher.get(
+          m.info.owner,
+          m.info.repo,
+          m.info.sha,
+          m.info.path,
+          tokenFingerprint
+        );
+        replacement.push(...buildSnippetTokens(state, m.info, entry, level));
+
+        // Advance past the link triple, and past the trailing line break
+        // that followed it (that softbreak was the line separator too).
+        cursor = m.idx + 3;
+        if (cursor < children.length && isLineBreak(children[cursor])) cursor++;
+      }
+
+      // Whatever's left of the original inline becomes a trailing paragraph.
+      if (cursor < children.length) {
+        replacement.push(
+          ...emitInlineParagraph(state, children.slice(cursor), level)
+        );
+      }
+
+      tokens.splice(i - 1, 3, ...replacement);
+      // Skip the loop ahead past the inserted tokens so we don't re-scan
+      // any new `inline` tokens we just emitted (they have no permalinks
+      // by construction, but skipping is cheaper than re-scanning).
+      i = i - 1 + replacement.length - 1;
     }
   });
 }

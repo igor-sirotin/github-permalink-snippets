@@ -15,7 +15,8 @@ https://github.com/microsoft/vscode/blob/af28b32d7e553898b2a91af498b1fb666fdebe0
 Open the Markdown preview and the URL is replaced with a snippet card showing
 the file path, the requested line range, and the actual code at that revision.
 
-Supported URL shapes (must be on their own paragraph):
+Supported URL shapes (the URL just has to be on its own line — a blank line
+above is *not* required, matching GitHub's behavior in PR comments):
 
 | Shape | Example |
 |---|---|
@@ -102,12 +103,10 @@ Permalinks: Show Log** for the full error from GitHub. Common cases:
 
 ## Limitations
 
-- **No syntax highlighting (yet).** Code is rendered with the editor's
-  monospace font but without colorization. The language is detected from the
-  file extension and applied as a `language-*` class so a follow-up can plug
-  in `highlight.js` or Shiki.
-- **Bare-URL paragraphs only.** Permalinks must be on their own line, with no
-  surrounding text in the same paragraph (this matches GitHub's own behavior).
+- **The URL must be on its own line.** A bare URL with text on the same
+  line stays a regular link — this matches GitHub's behavior in PR
+  comments. A blank line above/below is *not* required; a single newline
+  is enough.
 
 ## Try it locally
 
