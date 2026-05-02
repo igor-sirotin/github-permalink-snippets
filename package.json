@@ -1,13 +1,13 @@
 {
-  "name": "vscode-md-github-permalinks",
-  "displayName": "Markdown GitHub Permalinks",
+  "name": "github-permalink-snippets",
+  "displayName": "GitHub Permalink Snippets",
   "description": "Render GitHub permalinks as code snippets in Markdown preview, like GitHub does in comments and PRs.",
-  "version": "0.1.0",
+  "version": "0.0.1",
   "publisher": "sirotin",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/igor-sirotin/vscode-md-github-permalinks"
+    "url": "https://github.com/igor-sirotin/github-permalink-snippets"
   },
   "engines": {
     "vscode": "^1.80.0"
@@ -28,12 +28,44 @@
   ],
   "contributes": {
     "markdown.markdownItPlugins": true,
-    "markdown.previewScripts": [
-      "./preview/permalinks.js"
-    ],
     "markdown.previewStyles": [
       "./preview/permalinks.css"
-    ]
+    ],
+    "commands": [
+      {
+        "command": "githubPermalinkSnippets.signIn",
+        "title": "Sign In with GitHub",
+        "category": "GitHub Permalink Snippets"
+      },
+      {
+        "command": "githubPermalinkSnippets.showLog",
+        "title": "Show Log",
+        "category": "GitHub Permalink Snippets"
+      },
+      {
+        "command": "githubPermalinkSnippets.clearCache",
+        "title": "Clear Snippet Cache",
+        "category": "GitHub Permalink Snippets"
+      }
+    ],
+    "configuration": {
+      "type": "object",
+      "title": "GitHub Permalink Snippets",
+      "properties": {
+        "githubPermalinkSnippets.useVsCodeGitHubAuth": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "Use VS Code's built-in GitHub authentication to fetch file contents. When enabled (the default), the extension reuses your existing VS Code GitHub session — no need to paste a personal access token. Run **GitHub Permalink Snippets: Sign In with GitHub** to create a session if you don't have one.",
+          "scope": "window"
+        },
+        "githubPermalinkSnippets.githubToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Explicit GitHub personal access token used to fetch file contents. Overrides VS Code's GitHub session when set. Falls back to the `GITHUB_TOKEN` environment variable when blank.\n\nMinimum scopes:\n- **Fine-grained token**: `Contents` → `Read-only` on the target repositories\n- **Classic token**: `repo` (private) — or `public_repo` if only public repos are needed",
+          "scope": "window"
+        }
+      }
+    }
   },
   "scripts": {
     "compile": "tsc -p .",
@@ -45,5 +77,8 @@
     "@types/node": "^18.19.0",
     "@types/vscode": "^1.80.0",
     "typescript": "^5.4.0"
+  },
+  "dependencies": {
+    "@octokit/rest": "^20.1.2"
   }
 }
