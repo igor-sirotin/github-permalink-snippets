@@ -1,0 +1,49 @@
+{
+  "name": "vscode-md-github-permalinks",
+  "displayName": "Markdown GitHub Permalinks",
+  "description": "Render GitHub permalinks as code snippets in Markdown preview, like GitHub does in comments and PRs.",
+  "version": "0.1.0",
+  "publisher": "sirotin",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/igor-sirotin/vscode-md-github-permalinks"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "github",
+    "permalink",
+    "preview",
+    "snippet"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewScripts": [
+      "./preview/permalinks.js"
+    ],
+    "markdown.previewStyles": [
+      "./preview/permalinks.css"
+    ]
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "watch": "tsc -p . -w",
+    "vscode:prepublish": "npm run compile"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^13.0.7",
+    "@types/node": "^18.19.0",
+    "@types/vscode": "^1.80.0",
+    "typescript": "^5.4.0"
+  }
+}

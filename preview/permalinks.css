@@ -1,0 +1,122 @@
+.gh-permalink-embed {
+  margin: 12px 0;
+  display: block;
+}
+
+.gh-permalink-card {
+  border: 1px solid var(--vscode-widget-border, #d0d7de);
+  border-radius: 6px;
+  overflow: hidden;
+  background: var(--vscode-editor-background, #ffffff);
+}
+
+.gh-permalink-header {
+  background: var(--vscode-sideBarSectionHeader-background, #f6f8fa);
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--vscode-widget-border, #d0d7de);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.gh-permalink-link,
+.gh-permalink-link:hover,
+.gh-permalink-link:visited {
+  text-decoration: none;
+  color: var(--vscode-foreground, #1f2328);
+}
+
+.gh-permalink-link:hover .gh-permalink-path {
+  text-decoration: underline;
+}
+
+.gh-permalink-repo {
+  color: var(--vscode-descriptionForeground, #57606a);
+}
+
+.gh-permalink-sep {
+  color: var(--vscode-descriptionForeground, #57606a);
+}
+
+.gh-permalink-path {
+  font-weight: 600;
+}
+
+.gh-permalink-lines {
+  color: var(--vscode-descriptionForeground, #57606a);
+  margin-left: 6px;
+  font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 12px;
+}
+
+.gh-permalink-code {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  background: var(--vscode-editor-background, #ffffff);
+}
+
+.gh-permalink-code td {
+  padding: 0;
+  vertical-align: top;
+}
+
+.gh-permalink-code td.gh-ln {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  padding: 0 10px;
+  color: var(--vscode-editorLineNumber-foreground, #6e7781);
+  user-select: none;
+  border-right: 1px solid var(--vscode-widget-border, #d0d7de);
+  background: var(--vscode-editorGutter-background, transparent);
+}
+
+.gh-permalink-code td.gh-ln::before {
+  content: attr(data-line);
+}
+
+.gh-permalink-code td.gh-lc {
+  padding: 0 10px;
+  white-space: pre;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.gh-permalink-code td.gh-lc pre {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  white-space: pre;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.gh-permalink-code td.gh-lc pre code {
+  background: transparent;
+  padding: 0;
+  white-space: pre;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--vscode-editor-foreground, inherit);
+}
+
+.gh-permalink-loading {
+  padding: 10px 12px;
+  color: var(--vscode-descriptionForeground, #57606a);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.gh-permalink-error {
+  padding: 10px 12px;
+  color: var(--vscode-errorForeground, #cf222e);
+  font-size: 13px;
+}
+
+.gh-permalink-card-error {
+  border-color: var(--vscode-inputValidation-errorBorder, #cf222e);
+}
