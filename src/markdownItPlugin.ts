@@ -74,6 +74,34 @@ function isLineBreak(tok: Token | undefined): boolean {
   return tok.type === 'softbreak' || tok.type === 'hardbreak';
 }
 
+function isWhitespaceText(tok: Token | undefined): boolean {
+  return !!tok && tok.type === 'text' && tok.content.trim() === '';
+}
+
+/**
+ * Walk `direction` from `start` skipping whitespace-only text tokens. The
+ * URL counts as "on its own line" when this scan hits a line break, the
+ * end of the children array, or there's no token at all — but not when it
+ * hits actual prose content.
+ */
+function isLineBoundary(
+  children: Token[],
+  start: number,
+  direction: 1 | -1
+): boolean {
+  let k = start;
+  while (k >= 0 && k < children.length) {
+    const t = children[k];
+    if (isLineBreak(t)) return true;
+    if (isWhitespaceText(t)) {
+      k += direction;
+      continue;
+    }
+    return false;
+  }
+  return true;
+}
+
 /**
  * Try to recognise a linkified GitHub permalink at `children[j]` — i.e.
  * the [link_open, text(url), link_close] triple that markdown-it's linkify
@@ -270,7 +298,11 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
   const fetcher = options.fetcher;
   const getTokenFingerprint = options.getTokenFingerprint;
 
-  md.core.ruler.after('inline', 'github_permalinks', (state) => {
+  // Run AFTER the core `linkify` rule so bare URLs are guaranteed to be
+  // tokenised as link_open/text/link_close triples with their `href`
+  // populated — regardless of whether the running markdown-it version
+  // performs linkification during inline parsing or only in the core rule.
+  md.core.ruler.after('linkify', 'github_permalinks', (state) => {
     const tokenFingerprint = getTokenFingerprint();
     const tokens = state.tokens;
 
@@ -299,10 +331,10 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
         const info = tryMatchPermalinkAt(children, j);
         if (!info) continue;
 
-        const before = j > 0 ? children[j - 1] : undefined;
-        const after = j + 3 < children.length ? children[j + 3] : undefined;
-        const beforeOk = !before || isLineBreak(before);
-        const afterOk = !after || isLineBreak(after);
+        // Walk outward, skipping whitespace-only text tokens, until we hit
+        // either a line break, another piece of content, or the boundary.
+        const beforeOk = isLineBoundary(children, j - 1, -1);
+        const afterOk = isLineBoundary(children, j + 3, 1);
 
         if (beforeOk && afterOk) {
           matches.push({ idx: j, info });
@@ -317,9 +349,12 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
       let cursor = 0;
 
       for (const m of matches) {
-        // Pre-segment ends at the softbreak immediately before the link
-        // (if any) — that softbreak was the line separator, not content.
+        // Pre-segment ends at the line break immediately before the link
+        // (if any) — that break was the line separator, not content. Walk
+        // back over any whitespace-only text noise between the break and
+        // the link.
         let segEnd = m.idx;
+        while (segEnd > cursor && isWhitespaceText(children[segEnd - 1])) segEnd--;
         if (segEnd > cursor && isLineBreak(children[segEnd - 1])) segEnd--;
         replacement.push(
           ...emitInlineParagraph(state, children.slice(cursor, segEnd), level)
@@ -334,9 +369,10 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
         );
         replacement.push(...buildSnippetTokens(state, m.info, entry, level));
 
-        // Advance past the link triple, and past the trailing line break
-        // that followed it (that softbreak was the line separator too).
+        // Advance past the link triple, then past any whitespace-only text
+        // and the trailing line break that followed it.
         cursor = m.idx + 3;
+        while (cursor < children.length && isWhitespaceText(children[cursor])) cursor++;
         if (cursor < children.length && isLineBreak(children[cursor])) cursor++;
       }
 
