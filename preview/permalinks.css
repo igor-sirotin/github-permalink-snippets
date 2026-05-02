@@ -4,17 +4,19 @@
 }
 
 .gh-permalink-card {
-  border: 1px solid var(--vscode-widget-border, #d0d7de);
-  border-radius: 6px;
+  border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #d0d7de));
+  border-radius: 4px;
   overflow: hidden;
-  background: var(--vscode-editor-background, #ffffff);
+  background: var(--vscode-editor-background, transparent);
 }
 
 .gh-permalink-header {
-  background: var(--vscode-sideBarSectionHeader-background, #f6f8fa);
+  background: var(--vscode-sideBarSectionHeader-background, var(--vscode-editorWidget-background, #f6f8fa));
+  color: var(--vscode-sideBarSectionHeader-foreground, var(--vscode-foreground, #1f2328));
   padding: 6px 12px;
   border-bottom: 1px solid var(--vscode-widget-border, #d0d7de);
-  font-size: 13px;
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size, 13px);
   line-height: 1.4;
 }
 
@@ -22,7 +24,7 @@
 .gh-permalink-link:hover,
 .gh-permalink-link:visited {
   text-decoration: none;
-  color: var(--vscode-foreground, #1f2328);
+  color: inherit;
 }
 
 .gh-permalink-link:hover .gh-permalink-path {
@@ -43,78 +45,94 @@
 
 .gh-permalink-lines {
   color: var(--vscode-descriptionForeground, #57606a);
-  margin-left: 6px;
+  margin-left: 8px;
   font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 12px;
+  font-size: 0.92em;
 }
 
-.gh-permalink-code {
-  width: 100%;
-  border-collapse: collapse;
+/*
+ * Body: a flex row with the line-number gutter and the rendered fence side
+ * by side. Both inherit font metrics from this container so the gutter and
+ * the fenced-code lines align row-for-row.
+ */
+.gh-permalink-body {
+  display: flex;
+  align-items: stretch;
+  background: var(--vscode-editor-background, transparent);
+  color: var(--vscode-editor-foreground, inherit);
   font-family: var(--vscode-editor-font-family, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
-  font-size: 12px;
+  font-size: var(--vscode-editor-font-size, 13px);
+  font-weight: var(--vscode-editor-font-weight, normal);
   line-height: 1.5;
-  background: var(--vscode-editor-background, #ffffff);
+  tab-size: 4;
 }
 
-.gh-permalink-code td {
-  padding: 0;
-  vertical-align: top;
-}
-
-.gh-permalink-code td.gh-ln {
-  width: 1%;
-  white-space: nowrap;
+.gh-permalink-gutter {
+  white-space: pre;
+  padding: 8px 12px 8px 16px;
   text-align: right;
-  padding: 0 10px;
   color: var(--vscode-editorLineNumber-foreground, #6e7781);
   user-select: none;
-  border-right: 1px solid var(--vscode-widget-border, #d0d7de);
-  background: var(--vscode-editorGutter-background, transparent);
+  -webkit-user-select: none;
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
 }
 
-.gh-permalink-code td.gh-ln::before {
-  content: attr(data-line);
-}
-
-.gh-permalink-code td.gh-lc {
-  padding: 0 10px;
-  white-space: pre;
+.gh-permalink-code-host {
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
-  width: 100%;
 }
 
-.gh-permalink-code td.gh-lc pre {
+/*
+ * Flatten the fence-rendered <pre> so it lives inside our card without its
+ * own background, border, padding-box, or rounded corners. The highlighted
+ * <span> tokens inside still pick up the preview's syntax-highlighting CSS
+ * and theme colors — this only neutralises the chrome.
+ */
+.gh-permalink-code-host pre {
+  margin: 0;
+  padding: 8px 16px 8px 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  overflow: visible;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  line-height: inherit;
+  color: inherit;
+  white-space: pre;
+}
+
+.gh-permalink-code-host pre code {
   margin: 0;
   padding: 0;
   background: transparent;
   border: 0;
-  white-space: pre;
+  border-radius: 0;
   font-family: inherit;
   font-size: inherit;
+  font-weight: inherit;
   line-height: inherit;
-}
-
-.gh-permalink-code td.gh-lc pre code {
-  background: transparent;
-  padding: 0;
+  color: inherit;
   white-space: pre;
-  font-family: inherit;
-  font-size: inherit;
-  color: var(--vscode-editor-foreground, inherit);
 }
 
 .gh-permalink-loading {
-  padding: 10px 12px;
+  padding: 10px 16px;
   color: var(--vscode-descriptionForeground, #57606a);
   font-style: italic;
-  font-size: 13px;
+  font-size: var(--vscode-font-size, 13px);
 }
 
 .gh-permalink-error {
-  padding: 10px 12px;
+  padding: 10px 16px;
   color: var(--vscode-errorForeground, #cf222e);
-  font-size: 13px;
+  font-size: var(--vscode-font-size, 13px);
 }
 
 .gh-permalink-card-error {

@@ -106,42 +106,60 @@ function renderHeader(info: PermalinkInfo, lineLabel: string): string {
   );
 }
 
-function renderSnippet(info: PermalinkInfo, content: string): string {
-  const lines = content.split('\n');
-  if (lines.length > 0 && lines[lines.length - 1] === '') lines.pop();
+/**
+ * Compute the line slice + the open/close HTML that wraps a real `fence`
+ * token. We emit three tokens (html_block, fence, html_block) so the
+ * markdown-it `renderer.rules.fence` runs on our content — the same path
+ * any organic fenced code block in the preview takes — preserving theme,
+ * `<pre><code class="language-X">` structure, and any other fence-hooking
+ * preview plugins.
+ */
+interface FenceSnippet {
+  openHtml: string;
+  closeHtml: string;
+  fenceContent: string;
+  fenceInfo: string;
+}
+
+function buildFenceSnippet(info: PermalinkInfo, content: string): FenceSnippet {
+  const allLines = content.split('\n');
+  if (allLines.length > 0 && allLines[allLines.length - 1] === '') allLines.pop();
 
   const startNum = info.startLine ? Math.max(1, parseInt(info.startLine, 10)) : 1;
   const endNum = info.endLine
-    ? Math.min(lines.length, parseInt(info.endLine, 10))
+    ? Math.min(allLines.length, parseInt(info.endLine, 10))
     : info.startLine
       ? startNum
-      : lines.length;
-  const slice = lines.slice(startNum - 1, endNum);
+      : allLines.length;
+  const slice = allLines.slice(startNum - 1, endNum);
 
-  const lineLabel = endNum > startNum ? 'L' + startNum + '-L' + endNum : 'L' + startNum;
   const lang = detectLanguage(info.path);
+  const lineLabel = endNum > startNum ? 'L' + startNum + '-L' + endNum : 'L' + startNum;
 
-  const rows = slice
-    .map((line, i) => {
-      const lineNum = startNum + i;
-      const codeHtml = escapeHtml(line) || '&nbsp;';
-      return (
-        '<tr>' +
-        '<td class="gh-ln" data-line="' + lineNum + '"></td>' +
-        '<td class="gh-lc"><pre><code class="language-' + escapeHtml(lang) + '">' +
-        codeHtml +
-        '</code></pre></td>' +
-        '</tr>'
-      );
-    })
-    .join('');
+  // Gutter content: line numbers separated by newlines. white-space:pre in
+  // CSS keeps each on its own row, aligning with the code's lines as long
+  // as the gutter and code share font-size + line-height.
+  const gutterContent = slice
+    .map((_, i) => String(startNum + i))
+    .join('\n');
 
-  return (
+  const openHtml =
     '<div class="gh-permalink-card">' +
     renderHeader(info, lineLabel) +
-    '<table class="gh-permalink-code"><tbody>' + rows + '</tbody></table>' +
-    '</div>\n'
-  );
+    '<div class="gh-permalink-body">' +
+    '<div class="gh-permalink-gutter" aria-hidden="true">' +
+    escapeHtml(gutterContent) +
+    '</div>' +
+    '<div class="gh-permalink-code-host">';
+
+  const closeHtml = '</div></div></div>\n';
+
+  // No trailing newline: a `<pre>` would render the trailing \n as an extra
+  // blank visual line, misaligning with the gutter (which is also \n-joined
+  // without a trailing \n).
+  const fenceContent = slice.join('\n');
+
+  return { openHtml, closeHtml, fenceContent, fenceInfo: lang };
 }
 
 function renderLoading(info: PermalinkInfo): string {
@@ -191,14 +209,35 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
       if (!info) continue;
 
       const entry = fetcher.get(info.owner, info.repo, info.sha, info.path, tokenFingerprint);
-      let html: string;
+
       if (entry.status === 'fulfilled' && typeof entry.content === 'string') {
-        html = renderSnippet(info, entry.content);
-      } else if (entry.status === 'rejected') {
-        html = renderError(info, entry.error || 'unknown error');
-      } else {
-        html = renderLoading(info);
+        const snippet = buildFenceSnippet(info, entry.content);
+
+        const openToken = new state.Token('html_block', '', 0);
+        openToken.content = snippet.openHtml;
+        openToken.block = true;
+
+        const fenceToken = new state.Token('fence', 'code', 0);
+        fenceToken.info = snippet.fenceInfo;
+        fenceToken.content = snippet.fenceContent;
+        fenceToken.markup = '```';
+        fenceToken.block = true;
+
+        const closeToken = new state.Token('html_block', '', 0);
+        closeToken.content = snippet.closeHtml;
+        closeToken.block = true;
+
+        tokens.splice(i - 1, 3, openToken, fenceToken, closeToken);
+        // The three replacement tokens (html_block, fence, html_block) are
+        // none of them inline paragraph content, so the loop's type check
+        // skips them on subsequent iterations — no index adjustment needed.
+        continue;
       }
+
+      const html =
+        entry.status === 'rejected'
+          ? renderError(info, entry.error || 'unknown error')
+          : renderLoading(info);
 
       const placeholder = new state.Token('html_block', '', 0);
       placeholder.content = html;
