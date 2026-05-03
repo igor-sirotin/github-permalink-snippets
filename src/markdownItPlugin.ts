@@ -137,8 +137,15 @@ interface FenceSnippet {
  * the gap between the prefix paragraph and the snippet card so an
  * `text: URL` / `text URL` line feels visually attached, while a
  * blank-line-separated permalink keeps its full block spacing.
+ *
+ * `snippet` is special: the card immediately follows another card we
+ * emitted (no paragraph in between). VS Code's preview injects line-
+ * tracking divs between block elements, so a CSS `+` adjacent-sibling
+ * selector won't catch this case — we need an explicit class on the
+ * second card.
  */
 type PrevSep = 'paragraph' | 'softbreak' | 'inline';
+type CardSep = PrevSep | 'snippet';
 
 function classifyPrev(
   children: Token[],
@@ -152,15 +159,17 @@ function classifyPrev(
   return 'inline';
 }
 
-function cardClass(prevSep: PrevSep, extra = ''): string {
-  const tight = prevSep === 'inline' ? ' gh-permalink-card-tight' : '';
-  return 'gh-permalink-card' + tight + (extra ? ' ' + extra : '');
+function cardClass(prevSep: CardSep, extra = ''): string {
+  let mod = '';
+  if (prevSep === 'inline') mod = ' gh-permalink-card-tight';
+  else if (prevSep === 'snippet') mod = ' gh-permalink-card-follows-snippet';
+  return 'gh-permalink-card' + mod + (extra ? ' ' + extra : '');
 }
 
 function buildFenceSnippet(
   info: PermalinkInfo,
   content: string,
-  prevSep: PrevSep
+  prevSep: CardSep
 ): FenceSnippet {
   const allLines = content.split('\n');
   if (allLines.length > 0 && allLines[allLines.length - 1] === '') allLines.pop();
@@ -202,7 +211,7 @@ function buildFenceSnippet(
   return { openHtml, closeHtml, fenceContent, fenceInfo: lang };
 }
 
-function renderLoading(info: PermalinkInfo, prevSep: PrevSep): string {
+function renderLoading(info: PermalinkInfo, prevSep: CardSep): string {
   return (
     '<div class="' + cardClass(prevSep, 'gh-permalink-card-loading') + '">' +
     renderHeader(info, '') +
@@ -214,7 +223,7 @@ function renderLoading(info: PermalinkInfo, prevSep: PrevSep): string {
 function renderError(
   info: PermalinkInfo,
   message: string,
-  prevSep: PrevSep
+  prevSep: CardSep
 ): string {
   return (
     '<div class="' + cardClass(prevSep, 'gh-permalink-card-error') + '">' +
@@ -233,7 +242,7 @@ function buildSnippetTokens(
   info: PermalinkInfo,
   entry: CacheEntry,
   level: number,
-  prevSep: PrevSep
+  prevSep: CardSep
 ): Token[] {
   if (entry.status === 'fulfilled' && typeof entry.content === 'string') {
     const snippet = buildFenceSnippet(info, entry.content, prevSep);
@@ -321,6 +330,10 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
   md.core.ruler.after('linkify', 'github_permalinks', (state) => {
     const tokenFingerprint = getTokenFingerprint();
     const tokens = state.tokens;
+    // Track tokens we've emitted as a snippet card's closer; checking
+    // this set against the token preceding a subsequent paragraph_open
+    // tells us whether two cards are stacked back-to-back.
+    const ourCloseTokens = new WeakSet<Token>();
 
     for (let i = 0; i < tokens.length; i++) {
       const tok = tokens[i];
@@ -363,6 +376,14 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
       const replacement: Token[] = [];
       let cursor = 0;
 
+      // Across-paragraph check: if the block-level token immediately
+      // preceding popen is a closer we emitted for a previous card, then
+      // the first card from THIS paragraph is stacking on top of that
+      // earlier card with no prose paragraph between them.
+      const tokenBeforePopen = tokens[i - 2];
+      let priorWasCard =
+        !!tokenBeforePopen && ourCloseTokens.has(tokenBeforePopen);
+
       for (const m of matches) {
         const prevSep = classifyPrev(children, cursor, m.idx);
 
@@ -385,7 +406,14 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
         if (beforeTokens.length > 0 && prevSep === 'inline') {
           beforeTokens[0].attrJoin('class', 'gh-permalink-prefix-tight');
         }
+        if (beforeTokens.length > 0) {
+          // A real paragraph just landed between the previous card and
+          // the next one, so the next card isn't card-on-card.
+          priorWasCard = false;
+        }
         replacement.push(...beforeTokens);
+
+        const cardSep: CardSep = priorWasCard ? 'snippet' : prevSep;
 
         const entry = fetcher.get(
           m.info.owner,
@@ -394,9 +422,13 @@ export function permalinksPlugin(md: MarkdownIt, options: PluginOptions): void {
           m.info.path,
           tokenFingerprint
         );
-        replacement.push(
-          ...buildSnippetTokens(state, m.info, entry, level, prevSep)
-        );
+        const cardTokens = buildSnippetTokens(state, m.info, entry, level, cardSep);
+        // The closing html_block is always the last token in the sequence
+        // (whether it's the [open, fence, close] triple for a fulfilled
+        // snippet or the single placeholder for pending/rejected).
+        ourCloseTokens.add(cardTokens[cardTokens.length - 1]);
+        replacement.push(...cardTokens);
+        priorWasCard = true;
 
         // Advance past the link triple, then past any whitespace-only text
         // and the trailing line break that followed it.

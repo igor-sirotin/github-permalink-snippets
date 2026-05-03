@@ -11,11 +11,15 @@
 }
 
 /*
- * Two adjacent cards (e.g. `URL1 URL2` on the same line) would otherwise
- * stack edge-to-edge with their borders touching. A small gap keeps them
- * visually distinct without inflating the block to paragraph-spacing size.
+ * Two snippet cards rendered back-to-back (e.g. `URL1 URL2` on the same
+ * line, or two URL paragraphs separated only by blank lines) would
+ * otherwise stack edge-to-edge with their borders touching. We can't
+ * use `.gh-permalink-card + .gh-permalink-card` here: VS Code's preview
+ * injects a line-tracking <div> between block elements which breaks the
+ * adjacent-sibling combinator. The plugin tags the second-and-later
+ * cards explicitly with this class instead.
  */
-.gh-permalink-card + .gh-permalink-card {
+.gh-permalink-card-follows-snippet {
   margin-top: 4px;
 }
 
