@@ -5,8 +5,6 @@ linked code as an inline snippet card — just like GitHub does in PR comments.
 
 ## Single line
 
-Individual snippet:
-
 https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
 
 ## Range of lines
