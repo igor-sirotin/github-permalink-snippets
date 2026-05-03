@@ -5,6 +5,18 @@ linked code as an inline snippet card — just like GitHub does in PR comments.
 
 ## Single line
 
+Individual snippet:
+
+https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
+
+With a space after text: https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
+
+Two space-separated snippets:
+
+https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L72 https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L73
+
+## List items
+
 - Individual snippet:
 
   https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71

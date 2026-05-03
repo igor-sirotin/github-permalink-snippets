@@ -11,6 +11,15 @@
 }
 
 /*
+ * Two adjacent cards (e.g. `URL1 URL2` on the same line) would otherwise
+ * stack edge-to-edge with their borders touching. A small gap keeps them
+ * visually distinct without inflating the block to paragraph-spacing size.
+ */
+.gh-permalink-card + .gh-permalink-card {
+  margin-top: 4px;
+}
+
+/*
  * Tight spacing for the `text: URL` / `text URL` case — the snippet card
  * follows a paragraph that ended on the same source line as the URL, so we
  * collapse the bottom margin of that paragraph and pull the card up close
