@@ -2,8 +2,8 @@
   "name": "github-permalink-snippets",
   "displayName": "GitHub Permalink Snippets",
   "description": "Render GitHub permalinks as code snippets in Markdown preview, like GitHub does in comments and PRs.",
-  "version": "0.0.1",
-  "publisher": "sirotin",
+  "version": "0.0.2",
+  "publisher": "igor-sirotin",
   "license": "MIT",
   "repository": {
     "type": "git",
