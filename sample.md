@@ -9,29 +9,18 @@ Individual snippet:
 
 https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
 
-With a space after text: https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
-
-Two space-separated snippets:
-
-https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L72 https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L73
-
-## List items
-
-- Individual snippet:
-
-  https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
-
-- With a space after text: https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
-
-- Two space-separated snippets:
-
-  https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L72 https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L73
-
 ## Range of lines
 
 https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71-L74
 
-## The original example from the task
+## Padded List Item
+
+- Padded list item:
+
+  https://github.com/igor-sirotin/github-permalink-snippets/blob/064d4c8eba2e3cb11b2bc0223582b490fdcc74b6/src/extension.ts#L71
+
+
+## Private repo link
 
 This repo is private, so the snippet will show a friendly load error — that
 itself demonstrates the fallback path:
