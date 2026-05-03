@@ -6,7 +6,7 @@ pull request descriptions.
 
 ## What it does
 
-Drop a GitHub permalink on its own line in any Markdown file:
+Drop a GitHub permalink anywhere in any Markdown file:
 
 ```
 https://github.com/microsoft/vscode/blob/af28b32d7e553898b2a91af498b1fb666fdebe0c/src/vs/base/common/strings.ts#L20-L35
@@ -15,7 +15,9 @@ https://github.com/microsoft/vscode/blob/af28b32d7e553898b2a91af498b1fb666fdebe0
 Open the Markdown preview and the URL is replaced with a snippet card showing
 the file path, the requested line range, and the actual code at that revision.
 
-Supported URL shapes (must be on their own paragraph):
+Supported URL shapes — the URL can be standalone, follow a colon (`text:
+URL`), live mid-sentence, or be wrapped in trailing punctuation. Whatever
+inline content surrounds it gets emitted as before/after paragraphs:
 
 | Shape | Example |
 |---|---|
@@ -102,12 +104,9 @@ Permalinks: Show Log** for the full error from GitHub. Common cases:
 
 ## Limitations
 
-- **No syntax highlighting (yet).** Code is rendered with the editor's
-  monospace font but without colorization. The language is detected from the
-  file extension and applied as a `language-*` class so a follow-up can plug
-  in `highlight.js` or Shiki.
-- **Bare-URL paragraphs only.** Permalinks must be on their own line, with no
-  surrounding text in the same paragraph (this matches GitHub's own behavior).
+- **Markdown links with custom text aren't expanded.** `[label](URL)` stays
+  a regular link. Only bare URLs (autolinked by markdown-it's `linkify`)
+  become snippet cards.
 
 ## Try it locally
 

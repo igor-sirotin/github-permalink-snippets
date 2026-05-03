@@ -1,13 +1,30 @@
-.gh-permalink-embed {
-  margin: 12px 0;
-  display: block;
-}
-
+/*
+ * Symmetric vertical margin so the gap before the card (governed by the
+ * previous paragraph's margin-bottom) matches the gap after it (governed
+ * by the card's own margin-bottom — VS Code's preview gives `<p>` a 0
+ * margin-top, so without an explicit value here the after-gap collapses
+ * to 0 and the next paragraph snaps up against the snippet).
+ */
 .gh-permalink-card {
+  margin: 16px 0;
   border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, #d0d7de));
   border-radius: 4px;
   overflow: hidden;
   background: var(--vscode-editor-background, transparent);
+}
+
+/*
+ * Two snippet cards rendered back-to-back (e.g. `URL1 URL2` on the same
+ * line, or two URL paragraphs separated only by blank lines) collapse to
+ * a tighter 8px gap. The plugin explicitly tags both halves so the
+ * collapse actually wins — without trimming the previous card's
+ * margin-bottom too, the default 16px would dominate.
+ */
+.gh-permalink-card-precedes-snippet {
+  margin-bottom: 8px;
+}
+.gh-permalink-card-follows-snippet {
+  margin-top: 8px;
 }
 
 .gh-permalink-header {
